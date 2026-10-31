@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#2f6b4f">
 <meta name="description" content="目標から逆算する、勉強のタスク管理アプリ">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,6 +12,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="firebase-config.js"></script>
+<script>
+// Firebase の設定があるときは、ログインが決まるまでアプリの同期を待たせる(アプリは window.claude.use で同期する)
+if (window.FIREBASE_CONFIG) {
+  window.__authReady = new Promise(r => { window.__resolveAuth = r; });
+  window.claude = { use: async name => { const a = await window.__authReady; return !a ? null : name === "db" ? a.db : name === "user" ? a.user : null; } };
+}
+</script>
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -996,7 +1004,7 @@ function pageSet() {
     <ol class="order" id="secList">${secOrder().map((k, i) => `<li data-k="${k}"><span class="num">${i + 1}</span><b>${SEC[k]}</b><button class="grip" data-k="${k}" aria-label="${SEC[k]}を並べ替え(ドラッグ、または上下キー)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></button></li>`).join("")}</ol>
   </section>
   <section class="card"><h2>データ</h2>
-    <div class="set-row"><div class="d"><span>保存先</span><small>${sync.mode === "db" ? "claude.ai のアカウントに保存しています。同じアカウントでログインすれば、iPhone・iPad・Android・PCで同じデータが見られます。" : "この端末だけに保存しています。機種変更や別の端末で使うときは、下の「バックアップ」で書き出し・読み込みをしてください。"}${sync.err ? `(同期エラー:${esc(sync.err)}。通信が戻ると次の操作で再保存します)` : ""}</small></div><span class="pill${sync.mode === "db" ? " ok" : ""}">${sync.mode === "db" ? "同期中" : "この端末のみ"}</span></div>
+    <div class="set-row"><div class="d"><span>保存先</span><small>${sync.mode === "db" ? "ログインしたアカウントに保存しています。同じアカウントでログインすれば、iPhone・iPad・Android・PCで同じデータが見られます。" : "この端末だけに保存しています。機種変更や別の端末で使うときは、下の「バックアップ」で書き出し・読み込みをしてください。"}${sync.err ? `(同期エラー:${esc(sync.err)}。通信が戻ると次の操作で再保存します)` : ""}</small></div><span class="pill${sync.mode === "db" ? " ok" : ""}">${sync.mode === "db" ? "同期中" : "この端末のみ"}</span></div>
     <div class="set-row"><div class="d"><span>登録数</span><small>目標 ${n.g}件・タスク ${n.t}件・教材 ${n.m}件</small></div></div>
     <div class="set-row"><div class="d"><span>週の始まり</span><small>カレンダーと「記録」の週ごと表示に使います</small></div><div class="seg">${[[0, "日曜"], [1, "月曜"]].map(([k, l]) => `<button data-act="weekStart" data-v="${k}" aria-pressed="${(S.weekStart || 0) === k}">${l}</button>`).join("")}</div></div>
   </section>
@@ -1350,6 +1358,29 @@ connect();
 })();
 </script>
 
+<style>
+/* アプリとして使うときは拡大・縮小しない */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* iPhoneは16px未満の入力欄を押すと自動で拡大するので、16pxにそろえる */
+input,select,textarea,.f input,.f select,.f textarea,.lognav input,textarea.io{font-size:16px!important}
+</style>
+<script>
+// iPhoneのSafariは拡大禁止の指定を無視するので、2本指の拡大と、すばやい2回タップの拡大を打ち消す
+(() => {
+  const stop = e => e.preventDefault();
+  ["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, stop, { passive: false }));
+  document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  let last = 0;
+  document.addEventListener("touchend", e => {
+    const now = Date.now();
+    if (now - last < 300 && !e.target.closest("input,textarea,select,[contenteditable]")) e.preventDefault();
+    last = now;
+  }, { passive: false });
+})();
+</script>
+<script>
+if (window.FIREBASE_CONFIG) { const m = document.createElement("script"); m.type = "module"; m.src = "auth.js"; document.body.append(m); }
+</script>
 <script>
 // オフラインでも開けるように、サービスワーカーを登録する
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
